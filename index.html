@@ -174,12 +174,54 @@
     <script>
         let audioUrl = null;
         let audioElement = null;
+        let warningAudioUrl = null;
 
-        // Generate WAV file with multiple beeps
+        // Generate warning WAV with 3 long beeps (total ~6-7 seconds)
+        function generateWarningWav() {
+            const sampleRate = 44100;
+            const frequency = 600; // Lower frequency for warning
+            const beepDuration = 1.0; // 1 second per beep
+            const silenceDuration = 1.5; // 1.5 seconds silence between beeps
+            const numBeeps = 3;
+            const samplesPerBeep = Math.floor(sampleRate * beepDuration);
+            const samplesPerSilence = Math.floor(sampleRate * silenceDuration);
+            const totalSamples = (samplesPerBeep + samplesPerSilence) * numBeeps - samplesPerSilence;
+
+            const buffer = new ArrayBuffer(44 + totalSamples * 2);
+            const view = new DataView(buffer);
+
+            // WAV header
+            view.setUint32(0, 0x52494646, false);  // "RIFF"
+            view.setUint32(4, 36 + totalSamples * 2, true);
+            view.setUint32(8, 0x57415645, false);  // "WAVE"
+            view.setUint32(12, 0x666d7420, false); // "fmt "
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            view.setUint32(36, 0x64617461, false);
+            view.setUint32(40, totalSamples * 2, true);
+
+            // Generate 3 beeps with silence
+            for (let beep = 0; beep < numBeeps; beep++) {
+                const startSample = beep * (samplesPerBeep + samplesPerSilence);
+                for (let i = 0; i < samplesPerBeep; i++) {
+                    const sample = Math.sin(2 * Math.PI * frequency * i / sampleRate) * 0.5 * 32767;
+                    view.setInt16(44 + (startSample + i) * 2, sample, true);
+                }
+            }
+
+            return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
+        }
+
+        // Generate main WAV with periodic beeps
         function generateWav(totalDurationMinutes) {
             const sampleRate = 44100;
             const frequency = 800;
-            const beepDuration = 0.1; // 100ms per beep
+            const beepDuration = 0.1;
             const { lapTimeSeconds } = calculatePaceValues();
             
             const totalSeconds = totalDurationMinutes * 60;
@@ -192,21 +234,21 @@
             const view = new DataView(buffer);
 
             // WAV header
-            view.setUint32(0, 0x52494646, false);  // "RIFF"
-            view.setUint32(4, 36 + totalSamples * 2, true);  // File size
-            view.setUint32(8, 0x57415645, false);  // "WAVE"
-            view.setUint32(12, 0x666d7420, false); // "fmt "
-            view.setUint32(16, 16, true);          // Subchunk size
-            view.setUint16(20, 1, true);           // Audio format (PCM)
-            view.setUint16(22, 1, true);           // Num channels
-            view.setUint32(24, sampleRate, true);  // Sample rate
-            view.setUint32(28, sampleRate * 2, true); // Byte rate
-            view.setUint16(32, 2, true);           // Block align
-            view.setUint16(34, 16, true);          // Bits per sample
-            view.setUint32(36, 0x64617461, false); // "data"
-            view.setUint32(40, totalSamples * 2, true); // Data size
+            view.setUint32(0, 0x52494646, false);
+            view.setUint32(4, 36 + totalSamples * 2, true);
+            view.setUint32(8, 0x57415645, false);
+            view.setUint32(12, 0x666d7420, false);
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            view.setUint32(36, 0x64617461, false);
+            view.setUint32(40, totalSamples * 2, true);
 
-            // Generate beeps at intervals
+            // Generate beeps
             for (let beep = 0; beep < numBeeps; beep++) {
                 const startSample = beep * samplesPerInterval;
                 for (let i = 0; i < samplesPerBeep && (startSample + i) < totalSamples; i++) {
@@ -218,7 +260,6 @@
             return { url: URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' })), numBeeps };
         }
 
-        // Load saved settings
         function loadSettings() {
             const paceMin = localStorage.getItem('paceMin') || '5';
             const paceSec = localStorage.getItem('paceSec') || '00';
@@ -231,7 +272,6 @@
             document.getElementById('total-duration').value = totalDuration;
         }
 
-        // Save settings
         function saveSettings() {
             localStorage.setItem('paceMin', document.getElementById('pace-min').value);
             localStorage.setItem('paceSec', document.getElementById('pace-sec').value);
@@ -269,7 +309,7 @@
             saveSettings();
         }
 
-        function startVirtualPartner() {
+        async function startVirtualPartner() {
             if (audioElement) return;
 
             const totalDuration = parseInt(document.getElementById('total-duration').value) || 10;
@@ -280,7 +320,18 @@
                 return;
             }
 
-            // Generate and play WAV
+            // Play warning sequence first
+            document.getElementById('status').textContent = 'Προειδοποίηση - Έτοιμοι σε 6 δευτερόλεπτα...';
+            warningAudioUrl = generateWarningWav();
+            const warningAudio = new Audio(warningAudioUrl);
+            await new Promise(resolve => {
+                warningAudio.onended = resolve;
+                warningAudio.play();
+            });
+            URL.revokeObjectURL(warningAudioUrl);
+            warningAudioUrl = null;
+
+            // Generate and play main WAV
             const { url, numBeeps } = generateWav(totalDuration);
             audioUrl = url;
             audioElement = new Audio(audioUrl);
@@ -329,6 +380,7 @@
         });
         window.addEventListener('beforeunload', () => {
             if (audioUrl) URL.revokeObjectURL(audioUrl);
+            if (warningAudioUrl) URL.revokeObjectURL(warningAudioUrl);
         });
 
         // Service Worker
