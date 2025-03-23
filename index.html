@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="el" manifest="app.webmanifest">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Virtual Running Partner</title>
+    <meta name="theme-color" content="#007bff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="description" content="Your virtual running companion">
+    <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABYSURBVFhH7dXBCQAgDARR+/9fO9mQEC0sSMzWAAAAAElFTkSuQmCC" sizes="32x32">
+    <link rel="manifest" href="data:application/manifest+json,{\"name\":\"Virtual Running Partner\",\"short_name\":\"RunPartner\",\"start_url\":\".\",\"display\":\"standalone\",\"background_color\":\"#f0f0f0\",\"theme_color\":\"#007bff\",\"icons\":[{\"src\":\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABYSURBVFhH7dXBCQAgDARR+/9fO9mQEC0sSMzWAAAAAElFTkSuQmCC\",\"sizes\":\"32x32\",\"type\":\"image/png\"}]}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #f0f0f0;
+        }
+        .container {
+            text-align: center;
+            padding: 20px;
+            width: 90%;
+            max-width: 500px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h1 { 
+            color: #333; 
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        .input-group {
+            margin: 15px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .time-input {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        label {
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: bold;
+        }
+        input {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            text-align: center;
+            width: 60px;
+            font-size: 16px;
+        }
+        input.wider {
+            width: 80px;
+        }
+        .colon {
+            font-size: 20px;
+            margin: 0 5px;
+            font-weight: bold;
+        }
+        .units {
+            margin-left: 8px;
+            color: #666;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin: 10px 5px;
+            min-width: 120px;
+        }
+        button:hover { 
+            background-color: #0056b3; 
+        }
+        button.stop {
+            background-color: #dc3545;
+        }
+        button.stop:hover {
+            background-color: #bd2130;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            background-color: #e9f7ef;
+            color: #28a745;
+        }
+        .status.inactive {
+            background-color: #f8f9fa;
+            color: #6c757d;
+        }
+        .info-box {
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+        .info-item {
+            margin: 8px 0;
+            font-size: 16px;
+        }
+        .value {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Virtual Running Partner</h1>
+        
+        <div class="input-group">
+            <label for="pace-min">Ρυθμός (λεπτά/χλμ)</label>
+            <div class="time-input">
+                <input type="number" id="pace-min" min="0" max="59" value="5" placeholder="λεπτά">
+                <span class="colon">:</span>
+                <input type="number" id="pace-sec" min="0" max="59" value="00" placeholder="δευτ">
+            </div>
+        </div>
+        
+        <div class="input-group">
+            <label for="lap-distance">Απόσταση γύρου</label>
+            <div>
+                <input type="number" id="lap-distance" class="wider" min="10" value="400" placeholder="μέτρα">
+                <span class="units">μέτρα</span>
+            </div>
+        </div>
+        
+        <div class="input-group">
+            <label for="beep-duration">Διάρκεια Beep (δευτ)</label>
+            <input type="number" id="beep-duration" class="wider" min="0.1" step="0.1" value="0.5" placeholder="δευτ">
+        </div>
+        
+        <div id="controls">
+            <button id="start-btn" onclick="startVirtualPartner()">Έναρξη</button>
+            <button id="stop-btn" class="stop hidden" onclick="stopVirtualPartner()">Διακοπή</button>
+        </div>
+        
+        <div id="status" class="status inactive">Ανενεργό</div>
+        
+        <div class="info-box">
+            <div class="info-item">
+                Χρόνος ανά γύρο: <span id="lap-time-value" class="value">0:00.0</span>
+            </div>
+            <div class="info-item">
+                Διάστημα beep: <span id="beep-interval-value" class="value">0</span> ms
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let audioContext;
+        let intervalId = null;
+        let audioUrl = null;
+
+        // WAV file generation
+        function generateWav(duration) {
+            const sampleRate = 44100;
+            const frequency = 800;
+            const numSamples = Math.floor(sampleRate * duration);
+            const buffer = new ArrayBuffer(44 + numSamples * 2);
+            const view = new DataView(buffer);
+
+            // WAV header
+            view.setUint32(0, 0x52494646, false);  // "RIFF"
+            view.setUint32(4, 36 + numSamples * 2, true);  // File size
+            view.setUint32(8, 0x57415645, false);  // "WAVE"
+            view.setUint32(12, 0x666d7420, false); // "fmt "
+            view.setUint32(16, 16, true);          // Subchunk size
+            view.setUint16(20, 1, true);           // Audio format (PCM)
+            view.setUint16(22, 1, true);           // Num channels
+            view.setUint32(24, sampleRate, true);  // Sample rate
+            view.setUint32(28, sampleRate * 2, true); // Byte rate
+            view.setUint16(32, 2, true);           // Block align
+            view.setUint16(34, 16, true);          // Bits per sample
+            view.setUint32(36, 0x64617461, false); // "data"
+            view.setUint32(40, numSamples * 2, true); // Data size
+
+            // Generate sine wave
+            for (let i = 0; i < numSamples; i++) {
+                const sample = Math.sin(2 * Math.PI * frequency * i / sampleRate) * 0.5 * 32767;
+                view.setInt16(44 + i * 2, sample, true);
+            }
+
+            return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
+        }
+
+        // Load saved settings
+        function loadSettings() {
+            const paceMin = localStorage.getItem('paceMin') || '5';
+            const paceSec = localStorage.getItem('paceSec') || '00';
+            const lapDistance = localStorage.getItem('lapDistance') || '400';
+            const beepDuration = localStorage.getItem('beepDuration') || '0.5';
+
+            document.getElementById('pace-min').value = paceMin;
+            document.getElementById('pace-sec').value = paceSec;
+            document.getElementById('lap-distance').value = lapDistance;
+            document.getElementById('beep-duration').value = beepDuration;
+        }
+
+        // Save settings
+        function saveSettings() {
+            localStorage.setItem('paceMin', document.getElementById('pace-min').value);
+            localStorage.setItem('paceSec', document.getElementById('pace-sec').value);
+            localStorage.setItem('lapDistance', document.getElementById('lap-distance').value);
+            localStorage.setItem('beepDuration', document.getElementById('beep-duration').value);
+        }
+
+        function timeToSeconds(minutes, seconds) {
+            return (parseInt(minutes) * 60) + parseInt(seconds);
+        }
+
+        function secondsToTimeString(totalSeconds) {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = Math.floor(totalSeconds % 60);
+            const tenths = Math.floor((totalSeconds % 1) * 10);
+            return `${minutes}:${seconds.toString().padStart(2, '0')}.${tenths}`;
+        }
+
+        function calculatePaceValues() {
+            const paceMinutes = parseInt(document.getElementById('pace-min').value) || 0;
+            const paceSeconds = parseInt(document.getElementById('pace-sec').value) || 0;
+            const lapDistance = parseInt(document.getElementById('lap-distance').value) || 400;
+            const pacePerKm = timeToSeconds(paceMinutes, paceSeconds);
+            const lapTimeSeconds = (pacePerKm * lapDistance) / 1000;
+            const beepInterval = lapTimeSeconds * 1000;
+            return { lapTimeSeconds, beepInterval };
+        }
+
+        function updatePaceInfo() {
+            const { lapTimeSeconds, beepInterval } = calculatePaceValues();
+            document.getElementById('lap-time-value').textContent = secondsToTimeString(lapTimeSeconds);
+            document.getElementById('beep-interval-value').textContent = Math.round(beepInterval);
+            saveSettings();
+        }
+
+        function startVirtualPartner() {
+            if (intervalId !== null) return;
+
+            const { beepInterval } = calculatePaceValues();
+            const duration = parseFloat(document.getElementById('beep-duration').value) || 0.5;
+
+            if (beepInterval <= 0) {
+                alert('Παρακαλώ ορίστε έγκυρο ρυθμό και απόσταση γύρου');
+                return;
+            }
+
+            // Generate and play WAV
+            audioUrl = generateWav(duration);
+            const audio = new Audio(audioUrl);
+            audio.play();
+
+            intervalId = setInterval(() => {
+                const audio = new Audio(audioUrl);
+                audio.play();
+            }, beepInterval);
+
+            // Update UI
+            document.getElementById('start-btn').classList.add('hidden');
+            document.getElementById('stop-btn').classList.remove('hidden');
+            document.getElementById('status').textContent = 'Ενεργό - Ο εικονικός παρτενέρ τρέχει!';
+            document.getElementById('status').classList.remove('inactive');
+            document.getElementById('pace-min').disabled = true;
+            document.getElementById('pace-sec').disabled = true;
+            document.getElementById('lap-distance').disabled = true;
+            document.getElementById('beep-duration').disabled = true;
+        }
+
+        function stopVirtualPartner() {
+            if (intervalId === null) return;
+
+            clearInterval(intervalId);
+            intervalId = null;
+            if (audioUrl) {
+                URL.revokeObjectURL(audioUrl);
+                audioUrl = null;
+            }
+
+            document.getElementById('start-btn').classList.remove('hidden');
+            document.getElementById('stop-btn').classList.add('hidden');
+            document.getElementById('status').textContent = 'Ανενεργό';
+            document.getElementById('status').classList.add('inactive');
+            document.getElementById('pace-min').disabled = false;
+            document.getElementById('pace-sec').disabled = false;
+            document.getElementById('lap-distance').disabled = false;
+            document.getElementById('beep-duration').disabled = false;
+        }
+
+        // Event listeners
+        document.getElementById('pace-min').addEventListener('input', updatePaceInfo);
+        document.getElementById('pace-sec').addEventListener('input', updatePaceInfo);
+        document.getElementById('lap-distance').addEventListener('input', updatePaceInfo);
+        document.getElementById('beep-duration').addEventListener('input', updatePaceInfo);
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            updatePaceInfo();
+        });
+        window.addEventListener('beforeunload', () => {
+            if (audioUrl) URL.revokeObjectURL(audioUrl);
+        });
+
+        // Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                const swScript = `
+                    const CACHE_NAME = 'virtual-runner-cache-v1';
+                    const urlsToCache = ['/'];
+                    self.addEventListener('install', event => {
+                        event.waitUntil(
+                            caches.open(CACHE_NAME)
+                                .then(cache => cache.addAll(urlsToCache))
+                        );
+                    });
+                    self.addEventListener('fetch', event => {
+                        event.respondWith(
+                            caches.match(event.request)
+                                .then(response => response || fetch(event.request))
+                        );
+                    });
+                `;
+                const blob = new Blob([swScript], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                navigator.serviceWorker.register(swUrl)
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('Service Worker registration failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>
