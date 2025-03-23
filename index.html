@@ -190,7 +190,6 @@
             const buffer = new ArrayBuffer(44 + totalSamples * 2);
             const view = new DataView(buffer);
 
-            // WAV header
             view.setUint32(0, 0x52494646, false);
             view.setUint32(4, 36 + totalSamples * 2, true);
             view.setUint32(8, 0x57415645, false);
@@ -205,7 +204,6 @@
             view.setUint32(36, 0x64617461, false);
             view.setUint32(40, totalSamples * 2, true);
 
-            // Generate 3 beeps with silence
             for (let beep = 0; beep < numBeeps; beep++) {
                 const startSample = beep * (samplesPerBeep + samplesPerSilence);
                 for (let i = 0; i < samplesPerBeep; i++) {
@@ -217,12 +215,12 @@
             return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
         }
 
-        // Generate main WAV with gunshot start and periodic beeps
+        // Generate main WAV with louder gunshot and periodic beeps starting from gunshot
         function generateWav(totalDurationMinutes) {
             const sampleRate = 44100;
-            const gunshotFrequency = 100; // Low frequency for gunshot
+            const gunshotFrequency = 100;
             const beepFrequency = 800;
-            const gunshotDuration = 0.3; // 300ms for gunshot
+            const gunshotDuration = 0.3;
             const beepDuration = 0.1;
             const { lapTimeSeconds } = calculatePaceValues();
             
@@ -230,7 +228,7 @@
             const samplesPerGunshot = Math.floor(sampleRate * gunshotDuration);
             const samplesPerBeep = Math.floor(sampleRate * beepDuration);
             const samplesPerInterval = Math.floor(sampleRate * lapTimeSeconds);
-            const numBeeps = Math.floor((totalSeconds - gunshotDuration) / lapTimeSeconds);
+            const numBeeps = Math.floor(totalSeconds / lapTimeSeconds); // Time starts from gunshot
             const totalSamples = samplesPerGunshot + samplesPerInterval * numBeeps;
             
             const buffer = new ArrayBuffer(44 + totalSamples * 2);
@@ -251,14 +249,14 @@
             view.setUint32(36, 0x64617461, false);
             view.setUint32(40, totalSamples * 2, true);
 
-            // Generate gunshot at start (loud, low-frequency burst)
+            // Louder gunshot (increased amplitude)
             for (let i = 0; i < samplesPerGunshot; i++) {
-                const decay = 1 - (i / samplesPerGunshot); // Quick decay for gunshot effect
-                const sample = Math.sin(2 * Math.PI * gunshotFrequency * i / sampleRate) * decay * 32767;
-                view.setInt16(44 + i * 2, sample, true);
+                const decay = 1 - (i / samplesPerGunshot);
+                const sample = Math.sin(2 * Math.PI * gunshotFrequency * i / sampleRate) * decay * 32767 * 1.5; // 1.5x louder
+                view.setInt16(44 + i * 2, Math.max(-32767, Math.min(32767, sample)), true); // Clip to 16-bit range
             }
 
-            // Generate periodic beeps
+            // Periodic beeps starting from gunshot end
             for (let beep = 0; beep < numBeeps; beep++) {
                 const startSample = samplesPerGunshot + beep * samplesPerInterval;
                 for (let i = 0; i < samplesPerBeep && (startSample + i) < totalSamples; i++) {
@@ -312,14 +310,14 @@
         function updatePaceInfo() {
             const { lapTimeSeconds } = calculatePaceValues();
             const totalDuration = parseInt(document.getElementById('total-duration').value) || 10;
-            const numBeeps = Math.floor((totalDuration * 60 - 0.3) / lapTimeSeconds); // Subtract gunshot duration
+            const numBeeps = Math.floor(totalDuration * 60 / lapTimeSeconds);
             
             document.getElementById('lap-time-value').textContent = secondsToTimeString(lapTimeSeconds);
             document.getElementById('beep-count-value').textContent = numBeeps;
             saveSettings();
         }
 
-        async function startVirtualPartner() {
+        function startVirtualPartner() {
             if (audioElement) return;
 
             const totalDuration = parseInt(document.getElementById('total-duration').value) || 10;
@@ -334,29 +332,27 @@
             document.getElementById('status').textContent = 'Προειδοποίηση - Έτοιμοι σε 6 δευτερόλεπτα...';
             warningAudioUrl = generateWarningWav();
             const warningAudio = new Audio(warningAudioUrl);
-            await new Promise(resolve => {
-                warningAudio.onended = resolve;
-                warningAudio.play();
-            });
-            URL.revokeObjectURL(warningAudioUrl);
-            warningAudioUrl = null;
+            warningAudio.onended = () => {
+                URL.revokeObjectURL(warningAudioUrl);
+                warningAudioUrl = null;
 
-            // Generate and play main WAV with gunshot
-            const { url, numBeeps } = generateWav(totalDuration);
-            audioUrl = url;
-            audioElement = new Audio(audioUrl);
-            audioElement.loop = true;
-            audioElement.play();
+                // Generate and play main WAV with louder gunshot
+                const { url, numBeeps } = generateWav(totalDuration);
+                audioUrl = url;
+                audioElement = new Audio(audioUrl);
+                audioElement.loop = true;
+                audioElement.play();
 
-            // Update UI
-            document.getElementById('start-btn').classList.add('hidden');
-            document.getElementById('stop-btn').classList.remove('hidden');
-            document.getElementById('status').textContent = `Ενεργό - Εκκίνηση + ${numBeeps} beeps για ${totalDuration} λεπτά`;
-            document.getElementById('status').classList.remove('inactive');
-            document.getElementById('pace-min').disabled = true;
-            document.getElementById('pace-sec').disabled = true;
-            document.getElementById('lap-distance').disabled = true;
-            document.getElementById('total-duration').disabled = true;
+                document.getElementById('start-btn').classList.add('hidden');
+                document.getElementById('stop-btn').classList.remove('hidden');
+                document.getElementById('status').textContent = `Ενεργό - Εκκίνηση + ${numBeeps} beeps για ${totalDuration} λεπτά`;
+                document.getElementById('status').classList.remove('inactive');
+                document.getElementById('pace-min').disabled = true;
+                document.getElementById('pace-sec').disabled = true;
+                document.getElementById('lap-distance').disabled = true;
+                document.getElementById('total-duration').disabled = true;
+            };
+            warningAudio.play();
         }
 
         function stopVirtualPartner() {
